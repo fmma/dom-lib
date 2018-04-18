@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "lib": ["es2015", "dom"],
+        "target": "es5",
+        "module": "none",
+        "outFile": "dist/main.js",
+        "strict": true,
+        "baseUrl": "src",
+    },
+    "exclude": [
+        "node_modules",
+    ]
+}
