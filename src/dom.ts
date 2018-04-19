@@ -1,6 +1,7 @@
 type Action<M> = (model: M) => Promise<M>;
 type Setter<M, T> = (newValue: T) => (model: M) => Promise<M>;
-type Getter<M, T> = (model: M) => Promise<T>
+type Getter<M, T> = (model: M) => Promise<T>;
+type Prop<M, T> = [Getter<M, T>, Setter<M, T>];
 
 abstract class Dom<M> {
     abstract fragment(): Node;
@@ -59,15 +60,15 @@ class Elem<M> extends SingleNodeDom<M, Element> {
     }
 }
 
-class ForEach<M> extends Dom<M>{
+class ForEach<M, T> extends Dom<M>{
     private openTag = document.createComment("<foreach>");
     private closeTag = document.createComment("</foreach>");
-    private doms: Dom<[M, number]>[] = [];
+    private doms: Dom<[M, T]>[] = [];
     private n: number = 0; // Number of active DOM nodes.
-    private fix: null | ((i: number) => (callback: (m: [M, number]) => Promise<[M, number]>) => void) = null;
+    private fix: null | ((i: number) => (callback: (m: [M, T]) => Promise<[M, T]>) => void) = null;
 
-    constructor(readonly collection: Getter<M, number>,
-                readonly loopBody: () => Dom<[M, number]>) {
+    constructor(readonly collection: Getter<M, T[]>,
+                readonly loopBody: () => Dom<[M, T]>) {
         super();
     }
 
@@ -89,19 +90,22 @@ class ForEach<M> extends Dom<M>{
     }
     
     async feedModel(model: M) {
-        const n = await this.collection(model) | 0;
+        const collection = await this.collection(model);
+        const n = collection.length;
         this.newN(Math.max(0, n));
         const nodes = await Promise.all(
             this.doms.slice(0, this.n).map(
-                (node, i) => node.feedModel([model, i])));
+                (node, i) => node.feedModel([model, collection[i]])));
     }
 
     control(fix: (callback: (m: M) => Promise<M>) => void) {
-        this.fix = i =>
-            (callback) =>
+        this.fix = i => 
+            (callback) => 
             fix(async (m) => {
-            const p = await callback([m, i]);
-            return p[0];
+            const collection = await this.collection(m);
+            const p = await callback([m, collection[i]]);
+            // collection[i] = p[1];
+            return p[0];// this.collection[1](collection)(p[0]);
         });
     }
     
@@ -165,8 +169,7 @@ class Checkbox<M> extends SingleNodeDom<M, HTMLInputElement> {
 
 abstract class Input<M, T> extends SingleNodeDom<M, HTMLInputElement>{
     constructor(readonly placeholder: Getter<M, string>,
-                readonly get: Getter<M, T>, 
-                readonly set: Setter<M, T>,
+                readonly prop: Prop<M, T>,
                 inputType: string) {
         super(document.createElement("input"));
         this.node.type = inputType;
@@ -177,7 +180,7 @@ abstract class Input<M, T> extends SingleNodeDom<M, HTMLInputElement>{
     abstract showValue(value: T): string;
 
     async feedModel(model: M) {
-        const v = await this.get(model);
+        const v = await this.prop[0](model);
         if(this.node !== document.activeElement) {
             if(v !== this.readValue())
                 this.node.value = this.showValue(v);
@@ -191,7 +194,7 @@ abstract class Input<M, T> extends SingleNodeDom<M, HTMLInputElement>{
         this.node.oninput = () => {
             const value = this.readValue();
             if(value != null) {
-                fix(this.set(value));
+                fix(this.prop[1](value));
             }
         }
     }
@@ -200,9 +203,8 @@ abstract class Input<M, T> extends SingleNodeDom<M, HTMLInputElement>{
 class InputNumber<M> extends Input<M, number>{
 
     constructor(readonly placeholder: Getter<M, string>,
-                readonly get: Getter<M, number>, 
-                readonly set: Setter<M, number>) {
-        super(placeholder, get, set, "number");
+                readonly prop: Prop<M, number>) {
+        super(placeholder, prop, "number");
     }
 
     showValue(value: number): string {
@@ -219,9 +221,8 @@ class InputNumber<M> extends Input<M, number>{
 class InputText<M> extends Input<M, string>{
 
     constructor(readonly placeholder: Getter<M, string>,
-                readonly get: Getter<M, string>, 
-                readonly set: Setter<M, string>) {
-        super(placeholder, get, set, "text");
+                readonly prop: Prop<M, string>) {
+        super(placeholder, prop, "text");
     }
     
     showValue(value: string): string {
@@ -236,9 +237,8 @@ class InputText<M> extends Input<M, string>{
 class InputDate<M> extends Input<M, Date>{
 
     constructor(readonly placeholder: Getter<M, string>,
-                readonly get: Getter<M, Date>, 
-                readonly set: Setter<M, Date>) {
-        super(placeholder, get, set, "date");
+                readonly prop: Prop<M, Date>) {
+        super(placeholder, prop, "date");
     }
     
     showValue(date: Date): string {
@@ -255,9 +255,8 @@ class InputDate<M> extends Input<M, Date>{
 class InputTime<M> extends Input<M, Date>{
 
     constructor(readonly placeholder: Getter<M, string>,
-                readonly get: Getter<M, Date>, 
-                readonly set: Setter<M, Date>) {
-        super(placeholder, get, set, "time");
+                readonly prop: Prop<M, Date>) {
+        super(placeholder, prop, "time");
     }
     
     showValue(date: Date): string {
@@ -290,10 +289,10 @@ class Button<M> extends SingleNodeDom<M, HTMLButtonElement>{
     }
 }
 
-class Table<M, R> extends SingleNodeDom<M, HTMLTableElement>{
+class Table<M> extends SingleNodeDom<M, HTMLTableElement>{
     thead : HTMLTableSectionElement;
     tbody : HTMLTableSectionElement;
-    theadCells: ForEach<M>;
+    theadCells: ForEach<M, string>;
     constructor(
         readonly cols: Getter<M, string[]>,
         readonly rows: Dom<M>[]) {
@@ -302,14 +301,7 @@ class Table<M, R> extends SingleNodeDom<M, HTMLTableElement>{
         this.tbody = this.node.appendChild(document.createElement("tbody"));
         this.node.appendChild(this.thead);
         this.node.appendChild(this.tbody);
-        this.theadCells = new ForEach<M>(async (m) => {
-            const colNames = await this.cols(m);
-            return colNames.length;
-        },
-        () => new Elem("th", new Txt(async (m) => {
-            const colNames = await this.cols(m[0]);
-            return colNames[m[1]];
-        })));
+        this.theadCells = new ForEach<M, string>(this.cols, () => new Elem("th", new Txt(get("1"))));
         this.thead.appendChild(this.theadCells.fragment());
         rows.forEach(row => this.tbody.appendChild(row.fragment()));
     }
@@ -328,29 +320,22 @@ class Table<M, R> extends SingleNodeDom<M, HTMLTableElement>{
 class TableSmart<M, R> extends SingleNodeDom<M, HTMLTableElement>{
     thead : HTMLTableSectionElement;
     tbody : HTMLTableSectionElement;
-    theadCells: ForEach<M>;
-    tbodyRows: ForEach<M>;
+    theadCells: ForEach<M, string>;
+    tbodyRows: ForEach<M, R>;
     constructor(
         readonly cols: Getter<M, string[]>,
-        readonly nrows: Getter<M, number>,
-        readonly row: () => Dom<[M, number]>[]) {
+        readonly rows: Getter<M, R[]>,
+        readonly row: () => Dom<[M, R]>[]) {
         super(document.createElement("table"));
         this.thead = this.node.appendChild(document.createElement("thead"));
         this.tbody = this.node.appendChild(document.createElement("tbody"));
         this.node.appendChild(this.thead);
         this.node.appendChild(this.tbody);
-        this.theadCells = new ForEach<M>(async (m) => {
-            const colNames = await this.cols(m);
-            return colNames.length;
-        },
-        () => new Elem("th", new Txt(async (m) => {
-            const colNames = await this.cols(m[0]);
-            return colNames[m[1]];
-        })));
+        this.theadCells = new ForEach<M, string>(cols, () => new Elem("th", new Txt(get("1"))));
         this.thead.appendChild(this.theadCells.fragment());
 
-        const rowsPrime = () => new Elem<[M, number]>("tr", ...this.row().map(r => new Elem("td", r)));
-        this.tbodyRows = new ForEach(this.nrows, rowsPrime);
+        const rowsPrime = () => new Elem<[M, R]>("tr", ...this.row().map(r => new Elem("td", r)));
+        this.tbodyRows = new ForEach(this.rows, rowsPrime);
         this.tbody.appendChild(this.tbodyRows.fragment());
     }
 
@@ -365,13 +350,48 @@ class TableSmart<M, R> extends SingleNodeDom<M, HTMLTableElement>{
     }
 }
 
-function pagedTable<M>(
+function pagedTable<M, R>(
     cols: Getter<M, string[]>,
-    nrows: Getter<M, number>,
-    row: () => Dom<[M, number]>[],
-    pageSize: Getter<M, number>,
-    page: Getter<M, number>): Elem<M> {
-    const div = new Elem("div", new TableSmart(cols, pageSize, () => row()));
+    rows: Getter<M, R[]>,
+    row: () => Dom<[M, R]>[]): Elem<M> {
+    let ps = 5;
+    let p = 0;
+    const pageSize: Prop<M, number> = [async (m) => ps, v => async (m) => {ps = v; return m}];
+    const page: Prop<M, number> = [async (m) => p, v => async (m) => {p = v; return m}];
+    const div = new Elem("div"
+        , new TableSmart(cols, 
+            async (m) => {
+                const rs = await rows(m);
+                const i = await page[0](m);
+                const n = await pageSize[0](m);
+                return rs.slice(i, i + n);
+            },
+            () => row())
+        , new Txt(constant("page:"))
+        , new Button(constant("prev"), async (m) => {
+            const i = await page[0](m);
+            const n = await pageSize[0](m);
+            return i > 0 ? page[1](Math.max(0, i-n))(m) : m;
+          })
+          , new InputNumber(constant("page"), [async (x) => Math.ceil(p / ps) + 1, y => async(m) => {p = (y - 1) * ps; return m}])
+          , new Txt(async (m) => {
+            const rs = await rows(m);
+            const n = await pageSize[0](m);
+            return "/" + Math.ceil(rs.length / n).toString() + " ";
+          })
+        , new Button(constant("next"), async (m) => {
+            const i = await page[0](m);
+            const n = await pageSize[0](m);
+            const rs = await rows(m);
+            return i + n < rs.length ? page[1](Math.min(i+n, rs.length))(m) : m;
+          })
+        , new Txt(constant("page size:"))
+        , new InputNumber(constant("pagesize"), pageSize)
+        , new Txt(async (m) => {
+          const rs = await rows(m);
+          return "/" + Math.ceil(rs.length).toString() + " ";
+        })
+        );
     return div;
 }
 
@@ -383,19 +403,50 @@ function labelled<M>(label: Getter<M, string>, value: Dom<M>): Elem<M> {
     );
 }
 
-function get<M, K extends keyof M>(key: K): Getter<M, M[K]> {
-    return async (m) => m[key];
-}
-
 function constant<M, T>(value: T): Getter<M, T> {
     return async () => value;
 }
 
+function get<M, K extends keyof M>(key: K): Getter<M, M[K]> {
+    return async (m) => m[key];
+}
+
+function readonlyProp<M, T>(get: Getter<M, T>): Prop<M, T> {
+    return [get, v => async (m) => m];
+}
+
+function mapGet<M, T, U>(f: (x: T) => U): (get: Getter<M, T>) => Getter<M, U> {
+    return get => async (m) => f(await get(m));
+}
+
+function getLens<M, T, U>(get: Getter<M, T>): (g: Getter<T, U>) => Getter<M, U> {
+    return g => async (m) => g(await get(m));
+}
+
+function mapSet<M, T, U>(f: (x: U) => T): (set: Setter<M, T>) => Setter<M, U> {
+    return set => x => async (m) => set(f(x))(m);
+}
+
+function setLens<M, T, U>(prop: Prop<M, T>): (s: Setter<T, U>) => Setter<M, U> {
+    return s => x => async (m) => prop[1](await s(x)(await prop[0](m)))(m);
+}
+function mapProp<M, T, U>(f: (x: T) => U, g: (y: U) => T): (prop: Prop<M, T>) => Prop<M, U> {
+    return prop => [mapGet<M, T, U>(f)(prop[0]), mapSet<M, T, U>(g)(prop[1])];
+}
+
+function lens<M, T, U>(prop: Prop<M, T>): (prop: Prop<T, U>) => Prop<M, U> {
+    return p => [getLens<M, T, U>(prop[0])(p[0]), setLens<M, T, U>(prop)(p[1])];
+}
+
 function set<M, K extends keyof M>(key: K): Setter<M, M[K]> {
     return x => async (m) => {
-        m[key] = x;
+        m[key] = x; // TODO side-effecty
         return m;
     }
+}
+
+function prop<M, K extends keyof M>(key: K): Prop<M, M[K]> {
+    return [get(key), set(key)];
 }
 
 function mvc<M>(root: Dom<M>): (model: M) => Promise<void> {
@@ -422,6 +473,11 @@ async function renderPage<M>(root: Dom<M>, initialModel: Promise<M>): Promise<vo
 function flatten<T>(xss: T[][]): T[] {
     return [].concat.apply([], xss);
 }
+
+// Slow! use map reduce if possible
+function foldl<A, B>(f: (b: B, a: A) => B, ac: B, xs: A[]): B {
+    return (xs.length === 0) && ac || foldl(f, f(ac, xs[0]), xs.slice(1));
+};
 
 function insertMeBefore(node: Node, beforeNode: Node) {
     if(beforeNode.parentElement)
