@@ -30,14 +30,14 @@ function example() {
         new InputText(constant("name"), lens<[MyModel, MyRow], MyRow, string>(prop("1"))(prop("name"))),
         new InputNumber(constant("age"), [ async (m) => m[1].age
                                          , a => async (m) => {
-                                             ageSum += a - m[1].age; console.log("agediff", a - m[1].age); m[1].age = a; return m
+                                             ageSum += a - m[1].age; console.log("agediff", a - m[1].age); m[1].age = a; return;
                                            }
                                          ]),
         new Button(constant("delete"), async (m) => {
             console.log("agediff", -m[1].age);
             ageSum += -m[1].age;
             m[0].rows.splice(m[0].rows.indexOf(m[1]), 1); 
-            return m;
+            return;
         })
         ]
 
@@ -54,11 +54,11 @@ function example() {
                 ageSum += age;
                 m.rows.push({name: "kim", age: age });
             }
-            return m;
+            return;
         }),
         labelled(constant("Greater than 10?"), new Checkbox(async (m) => m.n > 10, (b) => async (m) => {
             m.n = b && m.n > 10 || !b && m.n < 10 ? m.n : 10;
-            return m;
+            return;
         })),
         pagedTable(get("rowNames"), get("rows"), rowFun),
         pagedTable(get("rowNames"), get("rows"), rowFun),
