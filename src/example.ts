@@ -1,3 +1,5 @@
+import { Dom, P, InputText, InputNumber, pagedTable, renderPage, Button, TableSmart, labelled, Checkbox, Elem } from './dom';
+
 class MyModel {
     n:number = 3;
     rows: MyRow[] = [
@@ -10,13 +12,13 @@ class MyModel {
         {name: "emma", age: 13},
         {name: "ava", age: 81}
     ]
-    rowNames: string[] = [
+    colNames: string[] = [
         "name", "age"
     ]
     get nrows() {
         return this.rows.length;
     }
-};
+}; 
 
 type MyRow = {
     name: string;
@@ -24,48 +26,50 @@ type MyRow = {
 }
 
 function example() {
-
-    const rowFun: () => Dom<[MyModel, MyRow]>[] = () => [
-        new P(getLens<[MyModel, MyRow], MyRow, string>(get("1"))(get("name"))),
-        new InputText(constant("name"), lens<[MyModel, MyRow], MyRow, string>(prop("1"))(prop("name"))),
-        new InputNumber(constant("age"), [ async (m) => m[1].age
-                                         , a => async (m) => {
-                                             ageSum += a - m[1].age; console.log("agediff", a - m[1].age); m[1].age = a; return;
+    const model = new MyModel();
+    const rowFun: (getRow: () => MyRow) => Dom[] = (getRow) => [
+        new P(() => getRow().name),
+        new InputText(() => "name", [() => getRow().name, n => {getRow().name = n}]),
+        new InputNumber(() => "age", [ () => getRow().age
+                                         , a => {
+                                             ageSum += a - getRow().age; 
+                                             console.log("agediff", a - getRow().age); 
+                                             getRow().age = a; 
+                                             return;
                                            }
                                          ]),
-        new Button(constant("delete"), async (m) => {
-            console.log("agediff", -m[1].age);
-            ageSum += -m[1].age;
-            m[0].rows.splice(m[0].rows.indexOf(m[1]), 1); 
+        new Button(() => ("delete"), () => {
+            console.log("agediff", -getRow().age);
+            ageSum += -getRow().age;
+            model.rows.splice(model.rows.indexOf(getRow()), 1); 
             return;
         })
         ]
 
-    let ageSum = new MyModel().rows.map(r => r.age).reduce((a, b) => a+b);
-    const view = new Elem<MyModel>("div",
-        new P(getLens<MyModel, MyRow[], string>(get("rows"))(async (r) => {return r.map(r => r.age).reduce((a, b) => a + b, 0).toString()})),
-        new P(async (m) => ageSum.toString()),
-        new InputNumber(constant("number"), prop("n")),
-        new Button(constant("I'm a button"), set<MyModel, "n">("n")(0)),
-        new Button(constant("Add row"), async (m) => {
-            for(let i = 0; i < 10000; ++i) {
+    let ageSum = model.rows.map(r => r.age).reduce((a, b) => a+b);
+    const view = new Elem("div",
+        new P(() => ageSum.toString()),
+        new InputNumber(() => "number", [() => model.n, (n0) => {model.n = n0}]),
+        new Button(() => "I'm a button", () => {model.n = 0}),
+        new Button(() => "Add row", () => {
+            for(let i = 0; i < 1000; ++i) {
                 const age = Math.round(Math.random() * 100);
                 console.log("agediff", age);
                 ageSum += age;
-                m.rows.push({name: "kim", age: age });
+                model.rows.push({name: "kim", age: age });
             }
             return;
         }),
-        labelled(constant("Greater than 10?"), new Checkbox(async (m) => m.n > 10, (b) => async (m) => {
-            m.n = b && m.n > 10 || !b && m.n < 10 ? m.n : 10;
+        labelled(() => ("Greater than 10?"), new Checkbox(() => model.n > 10, (b) => {
+            model.n = b && model.n > 10 || !b && model.n < 10 ? model.n : 10;
             return;
         })),
-        pagedTable(get("rowNames"), get("rows"), rowFun),
-        pagedTable(get("rowNames"), get("rows"), rowFun),
-        // new TableSmart(get("rowNames"), get("rows"), rowFun)
+        pagedTable(() => model.colNames, () => model.rows, rowFun),
+        pagedTable(() => model.colNames, () => model.rows, rowFun),
+        new TableSmart(() => model.colNames, () => model.rows, rowFun)
     );
 
-    renderPage(view, Promise.resolve(new MyModel()));
+    renderPage(view);
 }
 
 example();
