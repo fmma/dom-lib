@@ -33,13 +33,13 @@ function example() {
         new InputNumber(() => "age", [ () => getRow().age
                                          , a => {
                                              ageSum += a - getRow().age; 
-                                             console.log("agediff", a - getRow().age); 
+                                             // console.log("agediff", a - getRow().age); 
                                              getRow().age = a; 
                                              return;
                                            }
                                          ]),
         new Button(() => ("delete"), () => {
-            console.log("agediff", -getRow().age);
+            // console.log("agediff", -getRow().age);
             ageSum += -getRow().age;
             model.rows.splice(model.rows.indexOf(getRow()), 1); 
             return;
@@ -54,7 +54,7 @@ function example() {
         new Button(() => "Add row", () => {
             for(let i = 0; i < 1000; ++i) {
                 const age = Math.round(Math.random() * 100);
-                console.log("agediff", age);
+                // console.log("agediff", age);
                 ageSum += age;
                 model.rows.push({name: "kim", age: age });
             }
@@ -66,7 +66,7 @@ function example() {
         })),
         pagedTable(() => model.colNames, () => model.rows, rowFun),
         pagedTable(() => model.colNames, () => model.rows, rowFun),
-        new TableSmart(() => model.colNames, () => model.rows, rowFun)
+        //  new TableSmart(() => model.colNames, () => model.rows, rowFun)
     );
 
     renderPage(view);

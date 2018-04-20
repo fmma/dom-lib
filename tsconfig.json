@@ -2,7 +2,7 @@
     "compilerOptions": {
         "lib": ["es2015", "dom"],
         "target": "es5",
-        "module": "umd",
+        "module": "amd",
         // "outFile": "dist/main.js",
         "outDir": "dist",
         "strict": true,
