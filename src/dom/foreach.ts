@@ -1,4 +1,4 @@
-import { Dom, Fix, Getter, removeMe, insertMeBefore } from './base'
+import { Dom, Fix, Getter, removeMe, appendNode } from './base'
 
 export class ForEach<T> extends Dom{
     private openTag = document.createComment("<foreach>");
@@ -15,11 +15,11 @@ export class ForEach<T> extends Dom{
 
     fragment() {
         const frag = document.createDocumentFragment();
-        frag.appendChild(this.openTag);
+        appendNode(frag, this.openTag);
         for(let i = 0; i < this.n; ++i) {
-            frag.appendChild(this.doms[i].fragment());
+            appendNode(frag, this.doms[i].fragment());
         }
-        frag.appendChild(this.closeTag);
+        appendNode(frag, this.closeTag);
         return frag;
     }
 
@@ -70,9 +70,14 @@ export class ForEach<T> extends Dom{
         this.ensureCapacity(n);
         const frag = document.createDocumentFragment();
         for(let i = this.n; i < n; ++ i) {
-            frag.appendChild(this.doms[i].fragment());
+            appendNode(frag, this.doms[i].fragment());
         }
         insertMeBefore(frag, this.closeTag);
         this.n = n;
     }
+}
+
+const insertMeBefore = (node: Node, beforeNode: Node) => {
+    if(beforeNode.parentElement)
+        beforeNode.parentElement.insertBefore(node, beforeNode);
 }

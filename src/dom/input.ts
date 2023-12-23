@@ -5,6 +5,7 @@ export abstract class Input<T> extends SingleNodeDom<HTMLInputElement>{
                 readonly prop: Prop<T>,
                 inputType: string) {
         super(document.createElement("input"));
+        this.node.style.width = "100px";
         this.node.type = inputType;
     }
 
@@ -13,6 +14,8 @@ export abstract class Input<T> extends SingleNodeDom<HTMLInputElement>{
     abstract showValue(value: T): string;
 
     async feedModel() {
+        if(!isElementInViewport(this.node))
+            return;
         const v = await this.prop[0]();
         if(this.node !== document.activeElement) {
             if(v !== this.readValue())
@@ -31,6 +34,16 @@ export abstract class Input<T> extends SingleNodeDom<HTMLInputElement>{
             }
         }
     }
+}
+
+function isElementInViewport (el: Element) {
+    var rect = el.getBoundingClientRect();
+    return (
+        rect.top + rect.height + 200 >= 0 &&
+        rect.left + rect.width + 200 >= 0 &&
+        rect.bottom - rect.height - 200 <= (window.innerHeight || document.documentElement.clientHeight) && 
+        rect.right - rect.width - 200 <= (window.innerWidth || document.documentElement.clientWidth)
+    );
 }
 
 export class InputNumber extends Input<number>{

@@ -1,4 +1,4 @@
-import { Dom, P, InputText, InputNumber, pagedTable, renderPage, Button, TableSmart, labelled, Checkbox, Elem } from './dom';
+import { Dom, P, InputText, InputNumber, pagedTable, renderPage, Button, TableSmart, labelled, Checkbox, Elem, Prop } from './dom';
 
 class MyModel {
     n:number = 3;
@@ -38,6 +38,46 @@ function example() {
                                              return;
                                            }
                                          ]),
+        new InputNumber(() => "age", [ () => getRow().age
+                                         , a => {
+                                             ageSum += a - getRow().age; 
+                                             // console.log("agediff", a - getRow().age); 
+                                             getRow().age = a; 
+                                             return;
+                                           }
+                                         ]),
+        new InputNumber(() => "age", [ () => getRow().age
+                                         , a => {
+                                             ageSum += a - getRow().age; 
+                                             // console.log("agediff", a - getRow().age); 
+                                             getRow().age = a;
+                                             return;
+                                           }
+                                         ]),
+        new InputNumber(() => "age", [ () => getRow().age
+                                         , a => {
+                                             ageSum += a - getRow().age; 
+                                             // console.log("agediff", a - getRow().age); 
+                                             getRow().age = a; 
+                                             return;
+                                           }
+                                         ]),
+        new InputNumber(() => "age", [ () => getRow().age
+                                         , a => {
+                                             ageSum += a - getRow().age; 
+                                             // console.log("agediff", a - getRow().age); 
+                                             getRow().age = a; 
+                                             return;
+                                           }
+                                         ]),
+        new InputNumber(() => "age", [ () => getRow().age
+                                         , a => {
+                                             ageSum += a - getRow().age; 
+                                             // console.log("agediff", a - getRow().age); 
+                                             getRow().age = a; 
+                                             return;
+                                           }
+                                         ]),
         new Button(() => ("delete"), () => {
             // console.log("agediff", -getRow().age);
             ageSum += -getRow().age;
@@ -51,7 +91,7 @@ function example() {
         new P(() => ageSum.toString()),
         new InputNumber(() => "number", [() => model.n, (n0) => {model.n = n0}]),
         new Button(() => "I'm a button", () => {model.n = 0}),
-        new Button(() => "Add row", () => {
+        new Button(() => "Add rows", () => {
             for(let i = 0; i < 1000; ++i) {
                 const age = Math.round(Math.random() * 100);
                 // console.log("agediff", age);
@@ -60,15 +100,19 @@ function example() {
             }
             return;
         }),
-        labelled(() => ("Greater than 10?"), new Checkbox(() => model.n > 10, (b) => {
-            model.n = b && model.n > 10 || !b && model.n < 10 ? model.n : 10;
-            return;
-        })),
+        labelled(() => ("Greater than 10?"), new Checkbox(
+            () => model.n > 10, 
+            b => {
+                model.n = b && model.n > 10 ||
+                         !b && model.n < 10 
+                         ? model.n
+                         : 10;
+                return;
+            })),
         pagedTable(() => model.colNames, () => model.rows, rowFun),
         pagedTable(() => model.colNames, () => model.rows, rowFun),
         //  new TableSmart(() => model.colNames, () => model.rows, rowFun)
     );
-
     renderPage(view);
 }
 

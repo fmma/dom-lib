@@ -1,4 +1,4 @@
-import { SingleNodeDom, Dom, Getter, Elem, Txt, Fix, constant } from './base'
+import { SingleNodeDom, Dom, Getter, Elem, Txt, Fix, constant, appendNode } from './base'
 import { ForEach } from './foreach'
 import { Button, InputNumber } from './input'
 
@@ -10,13 +10,13 @@ export class Table extends SingleNodeDom<HTMLTableElement>{
         readonly cols: Getter<string[]>,
         readonly rows: Dom[]) {
         super(document.createElement("table"));
-        this.thead = this.node.appendChild(document.createElement("thead"));
-        this.tbody = this.node.appendChild(document.createElement("tbody"));
-        this.node.appendChild(this.thead);
-        this.node.appendChild(this.tbody);
+        this.thead = appendNode(this.node,document.createElement("thead"));
+        this.tbody = appendNode(this.node, document.createElement("tbody"));
+        appendNode(this.node, this.thead);
+        appendNode(this.node, this.tbody);
         this.theadCells = new ForEach<string>(this.cols, (getCol) => new Elem("th", new Txt(async () => getCol())));
-        this.thead.appendChild(this.theadCells.fragment());
-        rows.forEach(row => this.tbody.appendChild(row.fragment()));
+        appendNode(this.thead, this.theadCells.fragment());
+        rows.forEach(row => appendNode(this.tbody, row.fragment()));
     }
 
     async feedModel() {
@@ -40,16 +40,16 @@ export class TableSmart<R> extends SingleNodeDom<HTMLTableElement>{
         readonly rows: Getter<R[]>,
         readonly row: (getRow: () => R) => Dom[]) {
         super(document.createElement("table"));
-        this.thead = this.node.appendChild(document.createElement("thead"));
-        this.tbody = this.node.appendChild(document.createElement("tbody"));
-        this.node.appendChild(this.thead);
-        this.node.appendChild(this.tbody);
+        this.thead = appendNode(this.node, document.createElement("thead"));
+        this.tbody = appendNode(this.node, document.createElement("tbody"));
+        appendNode(this.node, this.thead);
+        appendNode(this.node, this.tbody);
         this.theadCells = new ForEach<string>(cols, (getCol) => new Elem("th", new Txt(async () => getCol())));
-        this.thead.appendChild(this.theadCells.fragment());
+        appendNode(this.thead, this.theadCells.fragment());
 
         const rowsPrime = (getRow: () => R) => new Elem("tr", ...this.row(getRow).map(r => new Elem("td", r)));
         this.tbodyRows = new ForEach(this.rows, rowsPrime);
-        this.tbody.appendChild(this.tbodyRows.fragment());
+        appendNode(this.tbody, this.tbodyRows.fragment());
     }
 
     async feedModel() {
@@ -67,35 +67,35 @@ export function pagedTable<R>(
     cols: Getter<string[]>,
     rows: Getter<R[]>,
     row: (getRow: () => R) => Dom[]): Elem {
-    let ps = 5;
-    let p = 0;
+    let pageSize = 5;
+    let pageIndex = 0;
     const div = new Elem("div"
         , new TableSmart(cols,
             async () => {
                 const rs = await rows();
-                return rs.slice(p, p + ps);
+                return rs.slice(pageIndex, pageIndex + pageSize);
             },
             row)
         , new Txt(constant("page:"))
-        , new Button(constant("prev"), async () => {
-            if(p > 0)
-                p = Math.max(0, p - ps);
+        , new Button(constant("<"), async () => {
+            if(pageIndex > 0)
+                pageIndex = Math.max(0, pageIndex - pageSize);
           })
-          , new InputNumber(constant("page"),   [ async () => Math.ceil(p / ps) + 1
-                                                , async (y) => {p = (y - 1) * ps; return}
+          , new InputNumber(constant("page"),   [ async () => Math.ceil(pageIndex / pageSize) + 1
+                                                , async (y) => {pageIndex = (y - 1) * pageSize; return}
                                                 ])
           , new Txt(async () => {
             const rs = await rows();
-            return "/" + Math.ceil(rs.length / ps).toString() + " ";
+            return "/" + Math.ceil(rs.length / pageSize).toString() + " ";
           })
-        , new Button(constant("next"), async () => {
+        , new Button(constant(">"), async () => {
             const rs = await rows();
-            if(p + ps < rs.length)
-                p = Math.min(p + ps, rs.length);
+            if(pageIndex + pageSize < rs.length)
+                pageIndex = Math.min(pageIndex + pageSize, rs.length);
             return;
           })
         , new Txt(constant("page size:"))
-        , new InputNumber(constant("page size"), [async () => ps, async (v) => {ps = v; return}])
+        , new InputNumber(constant("page size"), [async () => pageSize, async (v) => {pageSize = v; return}])
         , new Txt(async () => {
           const rs = await rows();
           return "/" + Math.ceil(rs.length).toString() + " ";

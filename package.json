@@ -4,7 +4,19 @@
   "description": "",
   "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "node_modules/.bin/webpack --watch -p",
+    "start": "http-server",
+    "uglify": "uglifyjs dist/bundle.js -c -m --mangle-props --toplevel -o dist/ugly-bundle.js"
   },
-  "author": "Frederik Meisner Madsen"
+  "author": "Frederik Meisner Madsen",
+  "devDependencies": {
+    "ts-loader": "^4.2.0",
+    "typescript": "^2.8.3",
+    "webpack": "^4.6.0",
+    "webpack-cli": "^2.0.15"
+  },
+  "dependencies": {
+    "npm": "^5.8.0"
+  }
 }

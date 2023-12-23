@@ -2,7 +2,7 @@
     "compilerOptions": {
         "lib": ["es2015", "dom"],
         "target": "es5",
-        "module": "amd",
+        "module": "commonjs",
         // "outFile": "dist/main.js",
         "outDir": "dist",
         "strict": true,

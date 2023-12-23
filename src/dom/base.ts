@@ -41,15 +41,28 @@ export class Txt extends SingleNodeDom<Text> {
     }
 }
 
+
+function isElementInViewport (el: Element) {
+    var rect = el.getBoundingClientRect();
+    return (
+        rect.top + rect.height + 200 >= 0 &&
+        rect.left + rect.width + 200 >= 0 &&
+        rect.bottom - rect.height - 200 <= (window.innerHeight || document.documentElement.clientHeight) && 
+        rect.right - rect.width - 200 <= (window.innerWidth || document.documentElement.clientWidth)
+    );
+}
+
 export class Elem extends SingleNodeDom<Element> {
     private children: Dom[];
     constructor(tag: string, ...children : Dom[]) {
         super(document.createElement(tag));
         this.children = children;
-        children.forEach(c => this.node.appendChild(c.fragment()));
+        children.forEach(c => appendNode(this.node, c.fragment()));
     }
     
     async feedModel() {
+        if(!isElementInViewport(this.node))
+            return;
         await Promise.all(this.children.map(c => c.feedModel()));
     }
 
@@ -103,6 +116,17 @@ export function mvc<M>(root: Dom): Promise<void> {
         await root.feedModel();
         return;
     });
+    // timeNow is the current time in milliseconds, created by
+    // casting new Date() to a number with +
+    var timeNow = +new Date();
+    window.addEventListener('scroll', function() {
+        // if the current time in milliseconds - timeNow is
+        // less than 250, abort.
+        if((+new Date() - timeNow) < 250) return;
+        // Else, reset timeNow to now.
+        timeNow = +new Date();
+        root.feedModel();    
+    });
     return root.feedModel();
 }
 
@@ -110,18 +134,17 @@ export async function renderPage<M>(root: Dom): Promise<void> {
     return new Promise<void>( (resolve, reject) => {
         const go = mvc(root);
         if(document.body) {
-            document.body.appendChild(root.fragment());
+            appendNode(document.body, root.fragment());
             resolve(go);
         }
         else {
             window.onload = async () => {
-                document.body.appendChild(root.fragment());
+                appendNode(document.body,root.fragment());
                 resolve(go);
             };
         }
     });
 }
-
 
 /// UTILITY
 export function flatten<T>(xss: T[][]): T[] {
@@ -133,12 +156,11 @@ export function foldl<A, B>(f: (b: B, a: A) => B, ac: B, xs: A[]): B {
     return (xs.length === 0) && ac || foldl(f, f(ac, xs[0]), xs.slice(1));
 };
 
-export function insertMeBefore(node: Node, beforeNode: Node) {
-    if(beforeNode.parentElement)
-        beforeNode.parentElement.insertBefore(node, beforeNode);
-}
-
 export function removeMe(node: Node) {
     if(node.parentElement)
         node.parentElement.removeChild(node);
+}
+
+export function appendNode<Child extends Node>(parent: Node, child: Child): Child {
+    return parent.appendChild(child);
 }
